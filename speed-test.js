@@ -2,15 +2,15 @@ import { existsSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { parseArgs } from 'node:util';
 
+const DEFAULT_DOWNLOAD_URL = 'https://watch.net.ru/pub/download-speed-test-10m.bin';
 const REQUEST_COUNT = 10;
 const TIMEOUT_MS = 120_000;
 
 async function main() {
   if (existsSync('.env')) process.loadEnvFile('.env');
   const { positionals } = parseArgs({ allowPositionals: true, options: {} });
-  if (positionals.length > 1) throw new Error('Usage: npm start -- [http(s)://URL]');
-  const input = positionals[0] || process.env.DOWNLOAD_URL;
-  if (!input) throw new Error('Pass a URL or set DOWNLOAD_URL in .env');
+  if (positionals.length > 1) throw new Error('Usage: npm run cli -- [http(s)://URL]');
+  const input = positionals[0] || process.env.DOWNLOAD_URL || DEFAULT_DOWNLOAD_URL;
   const url = new URL(input);
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error('Only HTTP and HTTPS URLs are supported');

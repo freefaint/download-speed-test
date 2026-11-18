@@ -8,7 +8,8 @@
     "node": ">=20.12.0"
   },
   "scripts": {
-    "start": "node speed-test.js",
-    "web": "node web.js"
+    "start": "node web.js",
+    "web": "node web.js",
+    "cli": "node speed-test.js"
   }
 }
