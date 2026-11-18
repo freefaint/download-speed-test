@@ -11,7 +11,7 @@
   button { background: #b7f3ca; color: #122218; font: inherit; font-weight: 700; border: 0; padding: 12px 20px; border-radius: 8px; cursor: pointer; }
   button:disabled { opacity: .6; cursor: wait; }
   svg { display: block; width: min(100%, 420px); margin: 24px auto; }
-  #fill { transition: stroke-dasharray .25s ease; }
+  #average-fill, #fill { transition: stroke-dasharray .25s ease; }
   details { margin-top: 16px; }
   summary { cursor: pointer; }
   #needle { transform-origin: 160px 150px; transition: transform .25s ease; }
@@ -22,6 +22,8 @@
   <svg viewBox="0 0 320 208" role="img" aria-label="Спидометр от 0 до 1000 Мбит/с">
     <path d="M52 150 A108 108 0 0 1 268 150" fill="none" stroke="#3d5273" stroke-width="12" stroke-linecap="round"/>
     <path id="fill" d="M52 150 A108 108 0 0 1 268 150" pathLength="100" fill="none" stroke="#78e59e" stroke-width="12" stroke-dasharray="0 100"/>
+    <path id="average-fill" d="M69 150 A91 91 0 0 1 251 150" pathLength="100" fill="none" stroke="#f6d36f" stroke-width="6" stroke-dasharray="0 100"/>
+    <text id="average-label" fill="#f6d36f" text-anchor="middle" font-family="system-ui" font-size="11" visibility="hidden">avg</text>
     <g fill="#d4def3" font-family="system-ui" font-size="12" text-anchor="middle">
       <text x="31" y="154">0</text>
       <text x="70" y="61">250</text>
@@ -56,6 +58,8 @@
 
   const fill = document.querySelector('#fill');
   const maxLabel = document.querySelector('#max-label');
+  const averageFill = document.querySelector('#average-fill');
+  const averageLabel = document.querySelector('#average-label');
   const totals = document.querySelector('#totals');
   const log = document.querySelector('#log');
   let peak = 0;
@@ -73,6 +77,15 @@
     speed.textContent = mbps === null ? 'Текущая: —' : `Текущая: ${mbps.toFixed(2)} Мбит/с`;
   }
 
+  function showAverage(mbps) {
+    const percent = Math.min(mbps, 1000) / 10;
+    const angle = Math.PI * percent / 100;
+    averageFill.setAttribute('stroke-dasharray', `${percent} 100`);
+    averageLabel.setAttribute('x', 160 - 68 * Math.cos(angle));
+    averageLabel.setAttribute('y', 154 - 68 * Math.sin(angle));
+    averageLabel.setAttribute('visibility', mbps > 0 ? 'visible' : 'hidden');
+  }
+
   button.addEventListener('click', async () => {
     const controller = new AbortController();
     const cancel = () => controller.abort();
@@ -80,6 +93,7 @@
     stop.hidden = false;
     button.disabled = true;
     showSpeed(null);
+    showAverage(0);
     status.textContent = 'Завершено 0 из 10 запросов…';
     totals.hidden = true;
     log.hidden = false;
@@ -90,6 +104,8 @@
       if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
       let pending = '';
+      let downloadedBytes = 0;
+      let downloadMs = 0;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -106,6 +122,9 @@
               const [, completed, bytes, milliseconds] = request;
               status.textContent = `Завершено ${completed} из 10 запросов…`;
               const elapsed = Number(milliseconds);
+              downloadedBytes += Number(bytes);
+              downloadMs += elapsed;
+              if (downloadMs > 0) showAverage(downloadedBytes * 8 / downloadMs / 1000);
               if (elapsed > 0 && elapsed < 300) showSpeed(Number(bytes) * 8 / elapsed / 1000);
             }
           }
@@ -115,6 +134,7 @@
       const measured = result.textContent.match(/Download speed: ([\d.]+) MiB\/s/);
       if (measured) {
         const average = Number(measured[1]) * 8 * 1024 ** 2 / 1_000_000;
+        showAverage(average);
         totals.textContent = `Максимум: ${peak.toFixed(2)} Мбит/с · Средняя: ${average.toFixed(2)} Мбит/с`;
         totals.hidden = false;
       }
