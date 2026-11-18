@@ -126,7 +126,9 @@
         pending = lines.pop();
         for (const line of lines) {
           if (line.startsWith('Live speed: ')) {
-            showSpeed(Number(line.slice('Live speed: '.length)));
+            const [currentMbps, averageMbps] = line.slice('Live speed: '.length).split(' ').map(Number);
+            showSpeed(currentMbps);
+            showAverage(averageMbps);
           } else {
             result.append(line + '\n');
             const request = line.match(/^(\d+)\/10: (\d+) bytes, ([\d.]+) ms$/);

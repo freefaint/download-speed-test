@@ -39,7 +39,9 @@ async function main() {
         const now = performance.now();
         const sampleMs = now - sampleStart;
         if (sampleMs >= 300) {
-          console.log(`Live speed: ${(sampleBytes * 8 / sampleMs / 1000).toFixed(2)}`);
+          const currentMbps = sampleBytes * 8 / sampleMs / 1000;
+          const averageMbps = (totalBytes + bytes) * 8 / (totalMs + now - start) / 1000;
+          console.log(`Live speed: ${currentMbps.toFixed(2)} ${averageMbps.toFixed(2)}`);
           sampleStart = now;
           sampleBytes = 0;
         }
