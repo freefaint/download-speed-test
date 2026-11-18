@@ -29,6 +29,7 @@ createServer((req, res) => {
 
   running = true;
   const child = spawn(process.execPath, ['speed-test.js'], {
+    env: { ...process.env, SPEED_TEST_LIVE: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });

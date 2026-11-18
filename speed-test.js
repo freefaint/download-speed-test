@@ -29,8 +29,21 @@ async function main() {
       throw new Error(`Request ${i + 1}: HTTP ${response.status}`);
     }
     let bytes = 0;
+    let sampleStart = performance.now();
+    let sampleBytes = 0;
     if (response.body) {
-      for await (const chunk of response.body) bytes += chunk.byteLength;
+      for await (const chunk of response.body) {
+        bytes += chunk.byteLength;
+        if (!process.env.SPEED_TEST_LIVE) continue;
+        sampleBytes += chunk.byteLength;
+        const now = performance.now();
+        const sampleMs = now - sampleStart;
+        if (sampleMs >= 300) {
+          console.log(`Live speed: ${(sampleBytes * 8 / sampleMs / 1000).toFixed(2)}`);
+          sampleStart = now;
+          sampleBytes = 0;
+        }
+      }
     }
     const elapsed = performance.now() - start;
     totalBytes += bytes;

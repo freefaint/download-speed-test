@@ -11,7 +11,7 @@
   button { background: #b7f3ca; color: #122218; font: inherit; font-weight: 700; border: 0; padding: 12px 20px; border-radius: 8px; cursor: pointer; }
   button:disabled { opacity: .6; cursor: wait; }
   svg { display: block; width: min(100%, 420px); margin: 24px auto; }
-  #needle { transform-origin: 160px 150px; transition: transform .65s ease; }
+  #needle { transform-origin: 160px 150px; transition: transform .25s ease; }
   pre { background: #1d2638; padding: 16px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
 <main>
@@ -27,6 +27,7 @@
       <text x="292" y="154">1000</text>
     </g>
     <path d="M52 150h10 M84 74l7 7 M160 42v10 M236 74l-7 7 M268 150h-10" fill="none" stroke="#edf2ff" stroke-width="2"/>
+    <text x="160" y="109" fill="#d4def3" text-anchor="middle" font-family="system-ui" font-size="14">Мбит/с</text>
     <path id="needle" d="M160 146 L66 150 L160 154 Z" fill="#b7f3ca"/>
     <circle cx="160" cy="150" r="7" fill="#b7f3ca"/>
     <text id="speed" x="160" y="192" fill="#edf2ff" text-anchor="middle" font-family="system-ui" font-size="20">— Мбит/с</text>
@@ -59,11 +60,26 @@
       const response = await fetch('/run', { method: 'POST' });
       if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      let pending = '';
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        result.append(value);
+        pending += value;
+        const lines = pending.split('\n');
+        pending = lines.pop();
+        for (const line of lines) {
+          if (line.startsWith('Live speed: ')) {
+            showSpeed(Number(line.slice('Live speed: '.length)));
+          } else {
+            result.append(line + '\n');
+            const request = line.match(/^\d+\/10: (\d+) bytes, ([\d.]+) ms$/);
+            if (request && Number(request[2]) > 0) {
+              showSpeed(Number(request[1]) * 8 / Number(request[2]) / 1000);
+            }
+          }
+        }
       }
+      result.append(pending);
       const measured = result.textContent.match(/Download speed: ([\d.]+) MiB\/s/);
       if (measured) showSpeed(Number(measured[1]) * 8 * 1024 ** 2 / 1_000_000);
       status.textContent = result.textContent.includes('\nDownload speed:')
