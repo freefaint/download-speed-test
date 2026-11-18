@@ -1,6 +1,11 @@
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
+
+if (existsSync('.env')) process.loadEnvFile('.env');
+
+const configuredMax = Number(process.env.SCALE_MAX_MBPS);
+const scaleMax = Number.isFinite(configuredMax) && configuredMax > 0 ? configuredMax : 300;
 
 const host = '127.0.0.1';
 const port = Number(process.env.PORT || 4173);
@@ -11,7 +16,7 @@ let running = false;
 createServer((req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'GET' && req.url === '/') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(readFileSync(pageUrl));
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(readFileSync(pageUrl, 'utf8').replace('__SCALE_MAX_MBPS__', String(scaleMax)));
     return;
   }
   if (req.method !== 'POST' || req.url !== '/run') {
