@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Замер скорости</title>
+<style>
+  body { margin: 0; background: #111725; color: #edf2ff; font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 10vh auto; padding: 24px; }
+  h1 { font-size: clamp(2rem, 7vw, 3.5rem); line-height: 1.1; margin: 0; }
+  p { color: #c3cde4; }
+  button { background: #b7f3ca; color: #122218; font: inherit; font-weight: 700; border: 0; padding: 12px 20px; border-radius: 8px; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  svg { display: block; width: min(100%, 420px); margin: 24px auto; }
+  #needle { transform-origin: 160px 150px; transition: transform .65s ease; }
+  pre { background: #1d2638; padding: 16px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+<main>
+  <h1>Замер скорости</h1>
+  <p>Node.js скачает файл из <code>.env</code> 10 раз подряд. Здесь появятся времена запросов, общий объём и скорость в MiB/s.</p>
+  <svg viewBox="0 0 320 208" role="img" aria-label="Спидометр от 0 до 1000 Мбит/с">
+    <path d="M52 150 A108 108 0 0 1 268 150" fill="none" stroke="#3d5273" stroke-width="12" stroke-linecap="round"/>
+    <g fill="#d4def3" font-family="system-ui" font-size="12" text-anchor="middle">
+      <text x="31" y="154">0</text>
+      <text x="70" y="61">250</text>
+      <text x="160" y="25">500</text>
+      <text x="250" y="61">750</text>
+      <text x="292" y="154">1000</text>
+    </g>
+    <path d="M52 150h10 M84 74l7 7 M160 42v10 M236 74l-7 7 M268 150h-10" fill="none" stroke="#edf2ff" stroke-width="2"/>
+    <path id="needle" d="M160 146 L66 150 L160 154 Z" fill="#b7f3ca"/>
+    <circle cx="160" cy="150" r="7" fill="#b7f3ca"/>
+    <text id="speed" x="160" y="192" fill="#edf2ff" text-anchor="middle" font-family="system-ui" font-size="20">— Мбит/с</text>
+  </svg>
+  <button type="button" id="start">Запустить замер</button>
+  <p id="status" role="status"></p>
+  <pre id="result" hidden></pre>
+</main>
+<script>
+  const button = document.querySelector('#start');
+  const status = document.querySelector('#status');
+  const result = document.querySelector('#result');
+
+  const needle = document.querySelector('#needle');
+  const speed = document.querySelector('#speed');
+
+  function showSpeed(mbps) {
+    const angle = Math.min(mbps ?? 0, 1000) * 180 / 1000;
+    needle.style.transform = `rotate(${angle}deg)`;
+    speed.textContent = mbps === null ? '— Мбит/с' : `${mbps.toFixed(2)} Мбит/с`;
+  }
+
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    showSpeed(null);
+    status.textContent = 'Идёт замер…';
+    result.hidden = false;
+    result.textContent = '';
+    try {
+      const response = await fetch('/run', { method: 'POST' });
+      if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        result.append(value);
+      }
+      const measured = result.textContent.match(/Download speed: ([\d.]+) MiB\/s/);
+      if (measured) showSpeed(Number(measured[1]) * 8 * 1024 ** 2 / 1_000_000);
+      status.textContent = result.textContent.includes('\nDownload speed:')
+        ? 'Замер завершён.'
+        : 'Замер прерван. Подробности ниже.';
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>
