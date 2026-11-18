@@ -14,7 +14,7 @@ npm start
 В `.env` задаётся HTTP/HTTPS-адрес файла:
 
 ```dotenv
-DOWNLOAD_URL=https://freefaint.ru/pub/download-speed-test-10m.bin
+DOWNLOAD_URL=https://watch.net.ru/pub/download-speed-test-10m.bin
 ```
 
 Можно передать другой адрес аргументом — он имеет приоритет над переменной окружения:
