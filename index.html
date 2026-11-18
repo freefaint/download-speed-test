@@ -37,6 +37,7 @@
     <text id="speed" x="160" y="192" fill="#edf2ff" text-anchor="middle" font-family="system-ui" font-size="20">Текущая: —</text>
   </svg>
   <button type="button" id="start">Запустить замер</button>
+  <button type="button" id="stop" hidden>Остановить</button>
   <p id="status" role="status"></p>
   <p id="totals" hidden></p>
   <details id="log" hidden>
@@ -46,6 +47,7 @@
 </main>
 <script>
   const button = document.querySelector('#start');
+  const stop = document.querySelector('#stop');
   const status = document.querySelector('#status');
   const result = document.querySelector('#result');
 
@@ -72,15 +74,19 @@
   }
 
   button.addEventListener('click', async () => {
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    stop.addEventListener('click', cancel);
+    stop.hidden = false;
     button.disabled = true;
     showSpeed(null);
-    status.textContent = 'Идёт замер…';
+    status.textContent = 'Завершено 0 из 10 запросов…';
     totals.hidden = true;
     log.hidden = false;
     log.open = false;
     result.textContent = '';
     try {
-      const response = await fetch('/run', { method: 'POST' });
+      const response = await fetch('/run', { method: 'POST', signal: controller.signal });
       if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
       let pending = '';
@@ -95,9 +101,12 @@
             showSpeed(Number(line.slice('Live speed: '.length)));
           } else {
             result.append(line + '\n');
-            const request = line.match(/^\d+\/10: (\d+) bytes, ([\d.]+) ms$/);
-            if (request && Number(request[2]) > 0 && Number(request[2]) < 300) {
-              showSpeed(Number(request[1]) * 8 / Number(request[2]) / 1000);
+            const request = line.match(/^(\d+)\/10: (\d+) bytes, ([\d.]+) ms$/);
+            if (request) {
+              const [, completed, bytes, milliseconds] = request;
+              status.textContent = `Завершено ${completed} из 10 запросов…`;
+              const elapsed = Number(milliseconds);
+              if (elapsed > 0 && elapsed < 300) showSpeed(Number(bytes) * 8 / elapsed / 1000);
             }
           }
         }
@@ -113,10 +122,12 @@
         ? 'Замер завершён.'
         : 'Замер прерван. Подробности ниже.';
     } catch (error) {
-      status.textContent = error.message;
+      status.textContent = controller.signal.aborted ? 'Замер остановлен.' : error.message;
     } finally {
       needle.style.transform = 'rotate(0deg)';
       speed.textContent = 'Текущая: —';
+      stop.removeEventListener('click', cancel);
+      stop.hidden = true;
       button.disabled = false;
     }
   });
