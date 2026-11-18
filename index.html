@@ -63,8 +63,15 @@
   const totals = document.querySelector('#totals');
   const log = document.querySelector('#log');
   let peak = 0;
+  let average = null;
 
-  function showSpeed(mbps) {
+  function showTotals() {
+    const maxText = peak > 0 ? peak.toFixed(2) + ' Мбит/с' : '—';
+    const avgText = average === null ? '—' : average.toFixed(2) + ' Мбит/с';
+    totals.textContent = `Максимум: ${maxText} · Средняя: ${avgText}`;
+  }
+
+  function showSpeed(mbps, updateNeedle = true) {
     if (mbps === null) peak = 0;
     else peak = Math.max(peak, mbps);
     const percent = Math.min(peak, 1000) / 10;
@@ -73,12 +80,17 @@
     maxLabel.setAttribute('y', 154 - 89 * Math.sin(peakAngle));
     maxLabel.setAttribute('visibility', peak > 0 ? 'visible' : 'hidden');
     fill.setAttribute('stroke-dasharray', `${percent} 100`);
-    needle.style.transform = `rotate(${Math.min(mbps ?? 0, 1000) * .18}deg)`;
-    speed.textContent = mbps === null ? 'Текущая: —' : `Текущая: ${mbps.toFixed(2)} Мбит/с`;
+    if (updateNeedle) {
+      needle.style.transform = `rotate(${Math.min(mbps ?? 0, 1000) * .18}deg)`;
+      speed.textContent = mbps === null ? 'Текущая: —' : `Текущая: ${mbps.toFixed(2)} Мбит/с`;
+    }
+    showTotals();
   }
 
   function showAverage(mbps) {
-    const percent = Math.min(mbps, 1000) / 10;
+    average = mbps;
+    showTotals();
+    const percent = Math.min(mbps ?? 0, 1000) / 10;
     const angle = Math.PI * percent / 100;
     averageFill.setAttribute('stroke-dasharray', `${percent} 100`);
     averageLabel.setAttribute('x', 160 - 68 * Math.cos(angle));
@@ -93,9 +105,9 @@
     stop.hidden = false;
     button.disabled = true;
     showSpeed(null);
-    showAverage(0);
+    showAverage(null);
     status.textContent = 'Завершено 0 из 10 запросов…';
-    totals.hidden = true;
+    totals.hidden = false;
     log.hidden = false;
     log.open = false;
     result.textContent = '';
@@ -125,7 +137,7 @@
               downloadedBytes += Number(bytes);
               downloadMs += elapsed;
               if (downloadMs > 0) showAverage(downloadedBytes * 8 / downloadMs / 1000);
-              if (elapsed > 0 && elapsed < 300) showSpeed(Number(bytes) * 8 / elapsed / 1000);
+              if (elapsed > 0) showSpeed(Number(bytes) * 8 / elapsed / 1000, elapsed < 300);
             }
           }
         }
@@ -133,10 +145,7 @@
       result.append(pending);
       const measured = result.textContent.match(/Download speed: ([\d.]+) MiB\/s/);
       if (measured) {
-        const average = Number(measured[1]) * 8 * 1024 ** 2 / 1_000_000;
-        showAverage(average);
-        totals.textContent = `Максимум: ${peak.toFixed(2)} Мбит/с · Средняя: ${average.toFixed(2)} Мбит/с`;
-        totals.hidden = false;
+        showAverage(Number(measured[1]) * 8 * 1024 ** 2 / 1_000_000);
       }
       status.textContent = result.textContent.includes('\nDownload speed:')
         ? 'Замер завершён.'
